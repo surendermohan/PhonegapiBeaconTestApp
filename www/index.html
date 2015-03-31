@@ -24,26 +24,47 @@
         <title>Beacon Tester</title>
     </head>
     <body>
-        <div class="app">
+        <div id="appStart" class="app">
             <h1>PhoneGap</h1>
             <div id="deviceready" class="blink">
                 <p class="event listening">Connecting to Device</p>
                 <p class="event received">Device is Ready</p>
-               
             </div>
-             <button onclick="searchBeacon()">Click me</button>
+            <button onclick="searchBeacon()">Search Single</button><br><br>
+            <button onclick="searchMultipleBeacons()">Search Multiple</button>
         </div>
-       
+        <div id="showValues" style="font-size:16px; display:none; text-align:center;">
+            <br><br>
+            <span id="value1" class="sphere red">0</span><br><br>
+            <span id="value2" class="sphere red">0</span><br><br>
+        </div>
+      
         <script type="text/javascript" src="cordova.js"></script>
         <script type="text/javascript" src="js/index.js"></script>
         <script type="text/javascript" src="js/jquery-2.1.1.min.js"></script>
 	    <script type="text/javascript" src="js/jquery.mobile-1.4.2.min.js"></script>
 
         <script type="text/javascript">
+            var identifier1 = 'S2M Beacon 1',
+            //uuid1 = '9e55be2d-71e1-5c02-9291-2fc8d675c6ba',
+            //major1 = 0,
+            //minor1 = 0,
+            uuid1 = '1a1a1a1a-1a1a-1a1a-1a1a-1a1a1a1a1a1a',
+            major1 = 1,
+            minor1 = 1,
+            identifier2 = 'S2M Beacon 2',
+            uuid2 = 'dd32bc04-57a2-59fe-85cd-3df8dcb578ca',
+            major2 = 1,
+            minor2 = 2;
+            //$('#value1').html(uuid1.substring(0, 4));
+            //$('#value2').html(uuid2.substring(0, 4));
+            
+            
             app.initialize();
-            document.addEventListener("deviceready", onDeviceReady, false);      
+            document.addEventListener("deviceready", onDeviceReady, false);
     function onDeviceReady() {
- 
+        alert('Welcome to S2M');
+        searchMultipleBeacons();
     }
       var logToDom = function (message) {
             var e = document.createElement('label');
@@ -58,7 +79,8 @@
         
      function createBeacon()
      {
-     	var uuid = 'DA5336AE-2042-453A-A57F-F80DD34DFCD9'; // mandatory
+         //var uuid = 'DA5336AE-2042-453A-A57F-F80DD34DFCD9'; // mandatory
+         var uuid = 'dd32bc04-57a2-59fe-85cd-3df8dcb578ca'; // mandatory
       
         var identifier = 'BeaconTest';
        
@@ -132,9 +154,80 @@
         }
         
         
+        function updateBeaconValues(jsonBeacon) {
+            var prox = jsonBeacon.proximity.substring(8);
+            //var strValue = jsonBeacon.uuid.substring(0, 4) + '<br>' + jsonBeacon.rssi + '<br>' + prox;
+            var strValue =  (100 + jsonBeacon.rssi);
+            var sphereColor = "red";
+            if (prox.toUpperCase().indexOf("FAR") > -1)
+            {
+                sphereColor = "blue";
+            }
+            else if (prox.toUpperCase().indexOf("NEAR") > -1) {
+                sphereColor = "yellow";
+                if (jsonBeacon.rssi > -60) sphereColor = "green";
+            }
+            else if (prox.toUpperCase().indexOf("IMMED") > -1)
+            {
+                sphereColor = "green blink";
+            }
+            
+            if (jsonBeacon.uuid == uuid1.toUpperCase()) {
+                $('#value1').html(strValue);
+                $('#value1').removeClass("red blue yellow green blink");
+                $('#value1').addClass(sphereColor);
+            }
+            else if (jsonBeacon.uuid == uuid2.toUpperCase()) {
+                $('#value2').html(strValue);
+                $('#value2').removeClass("red blue yellow green blink");
+                $('#value2').addClass(sphereColor);
+            }
+        }
+        
 
-
-    
+        
+        function createDelegate() {
+            var delegate = new cordova.plugins.locationManager.Delegate().implement({
+                                                                                    didDetermineStateForRegion: function (pluginResult) {
+                                                                                    console.log('[ibeacon]didDetermineStateForRegion: ' + JSON.stringify(pluginResult));
+                                                                                    cordova.plugins.locationManager.appendToDeviceLog('[ibeacon]didDetermineStateForRegion: ' + JSON.stringify(pluginResult));
+                                                                                    },
+                                                                                    didStartMonitoringForRegion: function (pluginResult) {
+                                                                                    console.log('[ibeacon]didStartMonitoringForRegion: ' + JSON.stringify(pluginResult));
+                                                                                    },
+                                                                                    didRangeBeaconsInRegion: function (pluginResult) {
+                                                                                    var jsonData = JSON.stringify(pluginResult);
+                                                                                    var jsonPData = JSON.parse(jsonData);
+                                                                                    console.log('[ibeacon]didRangeBeaconsInRegion: ' + jsonData);
+                                                                                    try {
+                                                                                    updateBeaconValues(jsonPData.beacons[0]);
+                                                                                    }
+                                                                                    catch (err) {
+                                                                                    console.log('[ibeacon]didRangeBeaconsInRegion Error: ' + err);
+                                                                                    }
+                                                                                    }
+                                                                                    });
+                                                                                    return delegate;
+        }
+        
+        function searchMultipleBeacons() {
+            
+            $('#appStart').hide();
+            $('#showValues').show();
+            
+            
+            var beacon1 = new cordova.plugins.locationManager.BeaconRegion(identifier1, uuid1, major1, minor1);
+            var beacon2 = new cordova.plugins.locationManager.BeaconRegion(identifier2, uuid2, major2, minor2);
+            
+            var delegate = createDelegate();
+            cordova.plugins.locationManager.setDelegate(delegate);
+            
+            logToDom('[DOM] Starting multiple polling');
+            cordova.plugins.locationManager.startMonitoringForRegion(beacon1).fail(console.log).done();
+            cordova.plugins.locationManager.startMonitoringForRegion(beacon2).fail(console.log).done();
+            cordova.plugins.locationManager.startRangingBeaconsInRegion(beacon1).fail(console.log).done();
+            cordova.plugins.locationManager.startRangingBeaconsInRegion(beacon2).fail(console.log).done();
+        }
         
 
 
